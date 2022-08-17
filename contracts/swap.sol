@@ -1,44 +1,54 @@
-//SPDX-License-Identifier: MIT
-pragma solidity ^0.8.1;
+// SPDX-License-Identifier: UNLICENSED
+pragma solidity ^0.8.9;
 
-import "./AGYToken.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
+contract SwapToken {
+    IERC20 public token1;
+    address public owner1;
+    uint public amount1;
+    IERC20 public token2;
+    address public owner2;
+    uint public amount2;
 
-contract SwapToken is AGYToken{
-    address public tokenAddress;
-
-    address public constant AGYContractAddress = 0x4486D59620E4dAf36C67E33a7Aac562fE69823ad;
-
-    struct TokenOrder{
-        uint256 deadline;
-        uint256 amountInputed;
-        address tokenAddrToSwap;
-        address tokenAddrToReceive;
-    }
-    uint ID = 1; 
-
-    mapping(uint => TokenOrder) _tokenOrder;
-
-    function createOrder( uint256 inputTok,
-        uint256 outputTok, address _tokenAddrToSwap, address _tokenAddrToReceive, uint256 _amount, uint256 _deadline) external returns (uint){  
-        require(_tokenAddrToSwap != address(0), "not a valid address");
-        require(_tokenAddrToReceive != address(0), "not a valid address"); 
-        require(_amount > 0, "You can't swap zero token");
-        TokenOrder storage TO = _tokenOrder[ID];
-        TO.deadline = _deadline + block.timestamp;
-        TO.amountInputed = _amount;
-        TO.tokenAddrToReceive = _tokenAddrToReceive;
-        TO.tokenAddrToSwap = _tokenAddrToSwap;
-        uint256 amountWithFee = _amount * 5;
-        uint256 AO = amountWithFee * outputTok;
-        uint256 div = (inputTok * 10) + amountWithFee;
-
-        mint(_amount);
-        return AO/div;
+    constructor(
+        address _token1,
+        address _owner1,
+        uint _amount1,
+        address _token2,
+        address _owner2,
+        uint _amount2
+    ) {
+        token1 = IERC20(_token1);
+        owner1 = _owner1;
+        amount1 = _amount1;
+        token2 = IERC20(_token2);
+        owner2 = _owner2;
+        amount2 = _amount2;
     }
 
-    function getContractBalance() public view returns(uint){
-        return balanceOf(address(this));
+    function swapToken() public {
+        require(msg.sender == owner1 || msg.sender == owner2, "Not authorized");
+        require(
+            token1.allowance(owner1, address(this)) >= amount1,
+            "Token 1 allowance too low"
+        );
+        require(
+            token2.allowance(owner2, address(this)) >= amount2,
+            "Token 2 allowance too low"
+        );
+
+        _safeTransferFrom(token1, owner1, owner2, amount1);
+        _safeTransferFrom(token2, owner2, owner1, amount2);
     }
 
+    function _safeTransferFrom(
+        IERC20 token,
+        address sender,
+        address recipient,
+        uint amount
+    ) private {
+        bool sent = token.transferFrom(sender, recipient, amount);
+        require(sent, "Token transfer failed");
+    }
 }
